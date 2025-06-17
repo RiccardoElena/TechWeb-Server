@@ -20,96 +20,14 @@ createUserModel(database);
 export const { User, Meme, MemeVote, Comment, CommentVote, Tag } =
   database.models;
 
-/* ---------------------- Associations ------------------------------------ */
+createModelAssociations();
 
-// User-Meme 1:N
-Meme.User = Meme.belongsTo(User, { foreignKey: { allowNull: false } });
-User.Memes = User.hasMany(Meme);
-
-// Meme-MemeVote 1:N
-Meme.Votes = Meme.hasMany(MemeVote);
-MemeVote.Meme = MemeVote.belongsTo(Meme, { foreignKey: 'memeId' });
-
-// User-MemeVote 1:N
-MemeVote.User = MemeVote.belongsTo(User);
-User.MemeVotes = User.hasMany(MemeVote, { foreignKey: 'userId' });
-
-// User-Comment 1:N
-Comment.User = Comment.belongsTo(User, { foreignKey: { allowNull: false } });
-User.Comments = User.hasMany(Comment);
-
-// Meme-Comment 1:N
-Meme.Comments = Meme.hasMany(Comment, { foreignKey: { allowNull: false } });
-Comment.Meme = Comment.belongsTo(Meme);
-
-// Comment-CommentVote 1:N
-Comment.Votes = Comment.hasMany(CommentVote);
-CommentVote.Comment = CommentVote.belongsTo(Comment, {
-  foreignKey: 'commentId',
-});
-
-// User-CommentVote 1:N
-CommentVote.User = CommentVote.belongsTo(User, { foreignKey: 'userId' });
-User.CommentVotes = User.hasMany(CommentVote);
-
-// Comment-Comment 1:M
-Comment.Parent = Comment.belongsTo(Comment, {
-  foreignKey: 'parentId',
-});
-Comment.Children = Comment.hasMany(Comment);
-
-/* ---------------------- Trigger ------------------------------------ */
-MemeVote.addHook('afterCreate', async (memeVote, options) => {
-  if (memeVote.isUpvote) {
-    await memeVote.Meme.increment('upvotes', {
-      transaction: options.transaction,
-    });
-  } else {
-    await memeVote.Meme.increment('downvotes', {
-      transaction: options.transaction,
-    });
-  }
-});
-
-MemeVote.addHook('afterUpdate', async (memeVote, options) => {
-  if (memeVote.previous('isUpvote') && !memeVote.isUpvote) {
-    await Promise.all([
-      memeVote.Meme.decrement('upvotes', {
-        transaction: options.transaction,
-      }),
-      memeVote.Meme.increment('downvotes', {
-        transaction: options.transaction,
-      }),
-    ]);
-  } else if (!memeVote.previous('isUpvote') && memeVote.isUpvote) {
-    await Promise.all([
-      memeVote.Meme.increment('upvotes', {
-        transaction: options.transaction,
-      }),
-      memeVote.Meme.decrement('downvotes', {
-        transaction: options.transaction,
-      }),
-    ]);
-  }
-});
-
-MemeVote.addHook('afterDestroy', async (memeVote, options) => {
-  if (memeVote.isUpvote) {
-    await memeVote.Meme.decrement('upvotes', {
-      transaction: options.transaction,
-    });
-  } else {
-    await memeVote.Meme.decrement('downvotes', {
-      transaction: options.transaction,
-    });
-  }
-});
+setUpTriggers();
 
 database
-  .sync
-  //{ alter: true } // Uncomment this line to alter the tables automatically
-  ()
-
+  .sync(
+    { alter: true } // Uncomment this line to alter the tables automatically
+  )
   .then(() => {
     console.log('Database synced correctly');
   })
@@ -119,3 +37,137 @@ database
       err.stack
     );
   });
+
+function setUpTriggers() {
+  MemeVote.addHook('afterCreate', async (memeVote, options) => {
+    const meme = await Meme.findByPk(memeVote.memeId, {
+      transaction: options.transaction,
+    });
+
+    if (memeVote.isUpvote) {
+      await meme.increment('upvotesNumber', {
+        transaction: options.transaction,
+      });
+    } else {
+      await meme.increment('downvotesNumber', {
+        transaction: options.transaction,
+      });
+    }
+  });
+
+  MemeVote.addHook('afterUpdate', async (memeVote, options) => {
+    const meme = await Meme.findByPk(memeVote.memeId, {
+      transaction: options.transaction,
+    });
+    if (memeVote.previous('isUpvote') && !memeVote.isUpvote) {
+      await Promise.all([
+        meme.decrement('upvotesNumber', {
+          transaction: options.transaction,
+        }),
+        meme.increment('downvotesNumber', {
+          transaction: options.transaction,
+        }),
+      ]);
+    } else if (!memeVote.previous('isUpvote') && memeVote.isUpvote) {
+      await Promise.all([
+        meme.increment('upvotesNumber', {
+          transaction: options.transaction,
+        }),
+        meme.decrement('downvotesNumber', {
+          transaction: options.transaction,
+        }),
+      ]);
+    }
+  });
+
+  MemeVote.addHook('afterDestroy', async (memeVote, options) => {
+    const meme = await Meme.findByPk(memeVote.memeId, {
+      transaction: options.transaction,
+    });
+    if (memeVote.isUpvote) {
+      await meme.decrement('upvotesNumber', {
+        transaction: options.transaction,
+      });
+    } else {
+      await meme.decrement('downvotesNumber', {
+        transaction: options.transaction,
+      });
+    }
+  });
+}
+
+function createModelAssociations() {
+  // User-Meme 1:N
+  Meme.User = Meme.belongsTo(User, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+  User.Memes = User.hasMany(Meme, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+
+  // Meme-MemeVote 1:N
+  Meme.Votes = Meme.hasMany(MemeVote, {
+    foreignKey: 'memeId',
+    onDelete: 'CASCADE',
+  });
+  MemeVote.Meme = MemeVote.belongsTo(Meme, {
+    foreignKey: 'memeId',
+    onDelete: 'CASCADE',
+  });
+
+  // User-MemeVote 1:N
+  MemeVote.User = MemeVote.belongsTo(User, {
+    foreignKey: 'userId',
+    onDelete: 'CASCADE',
+  });
+  User.MemeVotes = User.hasMany(MemeVote, {
+    foreignKey: 'memeId',
+    onDelete: 'CASCADE',
+  });
+
+  // User-Comment 1:N
+  Comment.User = Comment.belongsTo(User, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+  User.Comments = User.hasMany(Comment, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+
+  // Meme-Comment 1:N
+  Meme.Comments = Meme.hasMany(Comment, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+  Comment.Meme = Comment.belongsTo(Meme, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+
+  // Comment-CommentVote 1:N
+  Comment.Votes = Comment.hasMany(CommentVote, {
+    foreignKey: 'commentId',
+    onDelete: 'CASCADE',
+  });
+  CommentVote.Comment = CommentVote.belongsTo(Comment, {
+    foreignKey: 'commentId',
+    onDelete: 'CASCADE',
+  });
+
+  // User-CommentVote 1:N
+  CommentVote.User = CommentVote.belongsTo(User, {
+    foreignKey: 'userId',
+    onDelete: 'CASCADE',
+  });
+  User.CommentVotes = User.hasMany(CommentVote, {
+    foreignKey: 'userId',
+    onDelete: 'CASCADE',
+  });
+
+  // Comment-Comment 1:M
+  Comment.Parent = Comment.belongsTo(Comment, {
+    foreignKey: 'parentId',
+    onDelete: 'CASCADE',
+  });
+  Comment.Children = Comment.hasMany(Comment, {
+    foreignKey: 'parentId',
+    onDelete: 'CASCADE',
+  });
+}

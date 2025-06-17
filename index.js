@@ -6,7 +6,10 @@ import { authenticationRouter } from './routes/authenticationRouter.js';
 import { errorHandler } from './middleware/errors/errorHandler.js';
 import { apiDocsRouter } from './routes/apiDocsRouter.js';
 import { memeOpenRouter, memeRestrictedRouter } from './routes/memeRouter.js';
-import { enforceAuthentication } from './middleware/utils/authorization.js';
+import {
+  enforceAuthentication,
+  extractUserId,
+} from './middleware/utils/authorization.js';
 
 const app = express();
 const PORT = 3000;
@@ -23,6 +26,7 @@ app.use(apiDocsRouter);
 
 // Importing the authentication router
 app.use('/auth', authenticationRouter);
+app.use(extractUserId);
 app.use('/memes', memeOpenRouter);
 app.use(enforceAuthentication);
 app.use('/memes', memeRestrictedRouter);

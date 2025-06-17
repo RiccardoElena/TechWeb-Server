@@ -1,12 +1,11 @@
 import express from 'express';
 import { MemeController } from '../controllers/MemeController.js';
-import {
-  checkMemeAuthorization,
-  enforceAuthentication,
-} from '../middleware/utils/authorization.js';
+import { checkMemeAuthorization } from '../middleware/utils/authorization.js';
 
+/** Routes for public access to memes */
 export const memeOpenRouter = express.Router();
 
+/** Routes for authenticated users to manage memes */
 export const memeRestrictedRouter = express.Router();
 
 // TODO: after proper testing with db start using middleware for file upload
@@ -52,6 +51,7 @@ export const memeRestrictedRouter = express.Router();
  */
 memeOpenRouter.get('/', async (req, res) => {
   const { page, limit, title, tags, sortedBy, sortDirection } = req.query;
+
   let parsedTags = [];
   if (tags) {
     parsedTags = Array.isArray(tags) ? tags : tags.split(',');
@@ -77,11 +77,58 @@ memeOpenRouter.get('/', async (req, res) => {
     title,
     parsedTags,
     sortedBy,
-    sortDirection.toUpperCase()
+    sortDirection.toUpperCase(),
+    req.userId // Assuming user ID is set in req.userId by extractUserId middleware
   );
   res.json(memes);
 });
 
+/**
+ * @swagger
+ *  /memes/{id}:
+ *    get:
+ *      description: Get a specific meme by ID
+ *      produces:
+ *        - application/json
+ *      parameters:
+ *        - name: id
+ *          in: path
+ *          required: true
+ *          description: The ID of the meme to retrieve
+ *          schema:
+ *            type: string
+ *      responses:
+ *        200:
+ *          description: Meme object
+ *          content:
+ *            application/json:
+ *              schema:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    type: string
+ *                    example: 1
+ *                  title:
+ *                    type: string
+ *                    example: Funny Meme
+ *                  imageUrl:
+ *                    type: string
+ *                    example: http://example.com/meme.jpg
+ *                  createdAt:
+ *                    type: string
+ *                    format: date-time
+ *                    example: 2023-10-01T12:00:00Z
+ *                  userId:
+ *                    type: string
+ *                    example: 12345
+ *                  userName:
+ *                    type: string
+ *                    example: Kyle
+ *        404:
+ *          description: Meme not found
+ *        500:
+ *          description: Internal server error
+ */
 memeOpenRouter.get('/:id', async (req, res) => {
   const { id } = req.params;
   const { commentsPage, commentsLimit } = req.query;
@@ -97,16 +144,9 @@ memeRestrictedRouter.post('/', async (req, res) => {
   // this has to change when we implement file upload
   const { title, description, tags, fileName, originalFileName, filePath } =
     req.body;
-  console.log('Received file upload:', {
-    title,
-    description,
-    tags,
-    fileName,
-    originalFileName,
-    filePath,
-  });
-  const userId = req.userId; // Assuming user ID is set in req.userId by enforceAuthentication middleware
-  console.log('User ID:', userId);
+
+  const userId = req.userId; // Assuming user ID is set in req.userId by extractUserId middleware
+
   const meme = await MemeController.createMeme(
     { title, description, tags },
     fileName,
@@ -121,6 +161,37 @@ memeRestrictedRouter.put('/:id', checkMemeAuthorization, async (req, res) => {
   const { id } = req.params;
   // Assuming permissions are checked in some middleware
   const updatedMeme = await MemeController.updateMeme(id, req.body);
+  res.json(updatedMeme);
+});
+
+memeRestrictedRouter.put('/:id/vote', async (req, res) => {
+  const { id } = req.params;
+  const { isUpvote } = req.body;
+  const userId = req.userId; // Assuming user ID is set in req.userId
+  if (!userId) {
+    throw { status: 401, message: 'Unauthorized' };
+  }
+  if (!id) {
+    throw { status: 400, message: 'Meme ID is required' };
+  }
+  if (typeof isUpvote !== 'boolean') {
+    throw { status: 400, message: 'isUpvote must be a boolean' };
+  }
+  const updatedMeme = await MemeController.voteMeme(id, userId, isUpvote);
+  res.json(updatedMeme);
+});
+
+memeRestrictedRouter.delete('/:id/vote', async (req, res) => {
+  const { id } = req.params;
+
+  const userId = req.userId; // Assuming user ID is set in req.userId
+  if (!userId) {
+    throw { status: 401, message: 'Unauthorized' };
+  }
+  if (!id) {
+    throw { status: 400, message: 'Meme ID is required' };
+  }
+  const updatedMeme = await MemeController.unvoteMeme(id, userId);
   res.json(updatedMeme);
 });
 

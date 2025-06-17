@@ -1,18 +1,20 @@
 import { Meme, Comment, User, MemeVote } from '../data/remote/Database.js';
 import { Op } from 'sequelize';
+import { database } from '../data/remote/Database.js';
 
 export class MemeController {
   static async getMemesPage(
-    page = 1,
+    page = 0,
     limit = 10,
     title = '',
     tags = [],
     sortedBy = 'createdAt',
-    sortDirection = 'DESC'
+    sortDirection = 'DESC',
+    userId = null
   ) {
-    const validatedPage = Math.max(1, parseInt(page) || 1);
+    const validatedPage = Math.max(0, parseInt(page) || 0);
     const validatedLimit = Math.min(Math.max(1, parseInt(limit) || 10), 50);
-    const offset = (validatedPage - 1) * validatedLimit;
+    const offset = validatedPage * validatedLimit;
 
     const normalizedTags = tags
       ? tags.map((tag) => tag.toLowerCase().trim()).filter(Boolean)
@@ -34,11 +36,22 @@ export class MemeController {
 
     const where = orConditions.length > 0 ? { [Op.or]: orConditions } : {};
 
+    const include = [];
+    if (userId) {
+      include.push({
+        model: MemeVote,
+
+        where: { UserId: userId },
+        required: false, // così i meme senza voto vengono comunque inclusi
+        attributes: ['isUpvote'],
+      });
+    }
     const memes = await Meme.findAll({
       where,
       limit: validatedLimit,
       offset: offset,
       order: [[sortedBy, sortDirection]],
+      include,
     });
 
     return {
@@ -51,23 +64,39 @@ export class MemeController {
     };
   }
 
-  static async getMemeById(id, commentsPage = 1, commentsLimit = 20) {
+  static async getMemeById(
+    id,
+    commentsPage = 0,
+    commentsLimit = 20,
+    userId = null
+  ) {
     if (!id) {
       throw { status: 400, message: 'Meme ID is required' };
     }
 
-    const validatedCommentsPage = Math.max(1, parseInt(commentsPage) || 1);
+    const validatedCommentsPage = Math.max(0, parseInt(commentsPage) || 0);
     const validatedCommentsLimit = Math.min(
       Math.max(1, parseInt(commentsLimit) || 10),
       50
     );
 
-    const commentsOffset = (validatedCommentsPage - 1) * validatedCommentsLimit;
+    const commentsOffset = validatedCommentsPage * validatedCommentsLimit;
+    const include = [];
+    if (userId) {
+      include.push({
+        model: MemeVote,
 
+        where: { UserId: userId },
+        required: false, // così i meme senza voto vengono comunque inclusi
+        attributes: ['isUpvote'],
+      });
+    }
     // Lancia le query in parallelo
-    const [meme, comments] = await Promise.all([
+    const [meme, comments, count] = await Promise.all([
       // Query 1: Dati del meme
-      Meme.findByPk(id),
+      Meme.findByPk(id, {
+        include,
+      }),
 
       // Query 2: Commenti paginati
       Comment.findAll({
@@ -85,10 +114,16 @@ export class MemeController {
         limit: commentsLimit,
         offset: commentsOffset,
       }),
+      Comment.count({
+        where: {
+          MemeId: id,
+          parentId: null,
+        },
+      }),
     ]);
 
     if (!meme) {
-      return null;
+      throw { status: 404, message: 'Meme not found' };
     }
 
     // Combina i risultati
@@ -98,52 +133,77 @@ export class MemeController {
       commentsPagination: {
         page: commentsPage,
         limit: commentsLimit,
-        hasMore: comments.length === commentsLimit,
+        totalCount: count,
       },
     };
   }
 
-  static async voteMeme(memeId, userId, isUpvote) {
-    if (!memeId || !userId) {
+  static async voteMeme(memeId, usrId, isUpvote) {
+    if (typeof isUpvote !== 'boolean') {
+      throw { status: 400, message: 'isUpvote must be a boolean' };
+    }
+    if (!memeId || !usrId) {
       throw { status: 400, message: 'Meme ID and User ID are required' };
     }
 
-    const meme = await Meme.findByPk(id, {
+    const meme = await Meme.findByPk(memeId, {
       include: [
         {
           model: MemeVote,
-          where: { userId: userId }, // Filtra solo i voti di quell'utente
-          required: false, // Così il meme viene trovato anche se non ci sono voti di quell'utente
+          where: { userId: usrId },
+          required: false,
         },
       ],
     });
     if (!meme) {
       throw { status: 404, message: 'Meme not found' };
     }
+    const t = await database.transaction();
 
     if (meme.MemeVotes && meme.MemeVotes.length === 1) {
       const existingVote = meme.MemeVotes[0];
-      Promise.all([
-        existingVote.update({ voteType: isUpvote ? 'upvote' : 'downvote' }),
-        meme.reload(), // Ricarica il meme per aggiornare i voti
-      ]);
+      await existingVote.update({ isUpvote: isUpvote }, { transaction: t });
+    } else {
+      // Se non esiste un voto, creane uno nuovo
+      await MemeVote.create(
+        {
+          memeId: memeId,
+          userId: usrId,
+          isUpvote: isUpvote,
+        },
+        { transaction: t }
+      );
+    }
+    await t.commit();
+    return await meme.reload(); // Ricarica il meme per aggiornare i voti
+  }
+
+  static async unvoteMeme(memeId, usrId) {
+    if (!memeId || !usrId) {
+      throw { status: 400, message: 'Meme ID and User ID are required' };
     }
 
-    const existingVote = await MemeVote.findOne({
-      where: { MemeId: memeId, UserId: userId },
+    const meme = await Meme.findByPk(memeId, {
+      include: [
+        {
+          model: MemeVote,
+          where: { userId: usrId },
+          required: false,
+        },
+      ],
     });
-
-    if (existingVote) {
-      // Se esiste già un voto, aggiorna il tipo di voto
-      existingVote.voteType = isUpvote ? 'upvote' : 'downvote';
-      return existingVote.save();
+    if (!meme) {
+      throw { status: 404, message: 'Meme not found' };
+    }
+    const t = await database.transaction();
+    if (meme.MemeVotes && meme.MemeVotes.length === 1) {
+      const vote = meme.MemeVotes[0];
+      await vote.destroy({ transaction: t });
+      await t.commit();
+      return await meme.reload(); // Ricarica il meme per aggiornare i voti
     } else {
-      // Altrimenti crea un nuovo voto
-      return MemeVote.create({
-        MemeId: memeId,
-        UserId: userId,
-        voteType: isUpvote ? 'upvote' : 'downvote',
-      });
+      await t.rollback();
+      throw { status: 404, message: 'Vote not found for this user' };
     }
   }
 

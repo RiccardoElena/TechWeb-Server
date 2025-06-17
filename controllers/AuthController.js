@@ -68,8 +68,7 @@ export class AuthController {
     if (!meme) {
       throw { status: 404, message: 'Meme not found' };
     }
-    console.log('Meme id:', meme.UserId);
-    console.log('User id:', userId);
+
     if (meme.UserId !== userId) {
       throw {
         status: 403,
