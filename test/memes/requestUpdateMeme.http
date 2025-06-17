@@ -1,0 +1,9 @@
+PUT http://localhost:3000/memes/7818ae1f-3f26-4aa8-aef4-e4963147478f
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI5Nzg5YTA5Yi1mMDI0LTRkM2EtYTY2OC1jZDdlYTc1MzdlZjQiLCJ1c2VyTmFtZSI6InJpY2NhcmRvMiIsImlhdCI6MTc1MDE3MDE3MywiZXhwIjoxNzUwMjU2NTczfQ.z2rFun99v0yKjVsEZkZWIvXlSCh4nIOwKNp8GQjAANA
+
+{
+  "title": "Updated Meme Title",
+  "description": "Updated description for the meme.",
+  "tags": ["updated", "meme"]
+}

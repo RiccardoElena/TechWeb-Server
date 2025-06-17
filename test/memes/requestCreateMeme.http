@@ -1,0 +1,12 @@
+POST http://localhost:3000/memes
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI5Nzg5YTA5Yi1mMDI0LTRkM2EtYTY2OC1jZDdlYTc1MzdlZjQiLCJ1c2VyTmFtZSI6InJpY2NhcmRvMiIsImlhdCI6MTc1MDE2OTI4MywiZXhwIjoxNzUwMjU1NjgzfQ.lCbsQ1L5QjekzvwcPKJRWav2lH_m3n8cudJRcANyWZg
+
+{
+  "title": "Funny Cat Meme",
+  "description": "A hilarious cat meme that will make you laugh!",
+  "filePath": "http://example.com/cat-meme.jpg",
+  "fileName": "cat-meme.jpg",
+  "originalFileName": "cat-meme.jpg",
+  "tags": ["cat", "funny"]
+}
