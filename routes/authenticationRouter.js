@@ -38,7 +38,7 @@ export const authenticationRouter = express.Router();
 authenticationRouter.post('/login', async (req, res) => {
   let userId = await AuthController.checkCredentials(req.body);
 
-  res.json(AuthController.issueToken(userId, req.body.userName));
+  res.json(AuthController.issueToken(userId, req.body.username));
 });
 
 /**
@@ -71,10 +71,11 @@ authenticationRouter.post('/login', async (req, res) => {
  *          description: Username already exists
  */
 authenticationRouter.post('/signup', async (req, res) => {
+  console.log('Received signup request:', req.body);
   const user = await AuthController.register(
-    req.body.userName,
+    req.body.username,
     req.body.password
   );
 
-  res.status(201).json(user);
+  res.status(201).json(AuthController.issueToken(user.id, user.username));
 });

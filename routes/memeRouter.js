@@ -1,6 +1,8 @@
 import express from 'express';
 import { MemeController } from '../controllers/MemeController.js';
 import { checkMemeAuthorization } from '../middleware/utils/authorization.js';
+import { uploader } from '../data/local/multerStorage/uploader.js';
+import 'dotenv/config.js';
 
 /** Routes for public access to memes */
 export const memeOpenRouter = express.Router();
@@ -50,7 +52,8 @@ export const memeRestrictedRouter = express.Router();
  *          description: Internal server error
  */
 memeOpenRouter.get('/', async (req, res) => {
-  const { page, limit, title, tags, sortedBy, sortDirection } = req.query;
+  const { page, limit, title, tags, sortedBy, sortDirection, userId } =
+    req.query;
 
   let parsedTags = [];
   if (tags) {
@@ -78,6 +81,7 @@ memeOpenRouter.get('/', async (req, res) => {
     parsedTags,
     sortedBy,
     sortDirection.toUpperCase(),
+    userId,
     req.userId // Assuming user ID is set in req.userId by extractUserId middleware
   );
   res.json(memes);
@@ -135,22 +139,33 @@ memeOpenRouter.get('/:id', async (req, res) => {
   const meme = await MemeController.getMemeById(
     id,
     commentsPage,
-    commentsLimit
+    commentsLimit,
+    req.userId // Assuming user ID is set in req.userId by extractUserId middleware
   );
   res.json(meme);
 });
 
-memeRestrictedRouter.post('/', async (req, res) => {
-  // this has to change when we implement file upload
-  const { title, description, tags, fileName, originalFileName, filePath } =
-    req.body;
+memeOpenRouter.get('/memeOfTheDay', async (req, res) => {
+  const memeId = await MemeController.getMemeOfTheDayId();
+  if (!memeId) {
+    throw { status: 404, message: 'Meme of the day not found' };
+  }
+  const meme = await MemeController.getMemeById(memeId, 0, 20, req.userId);
+  res.json(meme);
+});
 
+memeRestrictedRouter.post('/', uploader.single('file'), async (req, res) => {
+  // this has to change when we implement file upload
+  const { filename: fileName } = req.file;
+  const filePath = `http://localhost:${process.env.PORT}/uploads/${fileName}`; // Adjust this based on your server setup
+
+  const { title, description, tags } = req.body;
+  console.log(title, description, tags, fileName, filePath);
   const userId = req.userId; // Assuming user ID is set in req.userId by extractUserId middleware
 
   const meme = await MemeController.createMeme(
     { title, description, tags },
     fileName,
-    originalFileName,
     filePath,
     userId
   );
@@ -160,10 +175,25 @@ memeRestrictedRouter.post('/', async (req, res) => {
 memeRestrictedRouter.put('/:id', checkMemeAuthorization, async (req, res) => {
   const { id } = req.params;
   // Assuming permissions are checked in some middleware
-  const updatedMeme = await MemeController.updateMeme(id, req.body);
+  const updatedMeme = await MemeController.updateMeme(id, req.body, req.userId);
   res.json(updatedMeme);
 });
 
+memeRestrictedRouter.delete(
+  '/:id',
+  checkMemeAuthorization,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!id) {
+      throw { status: 400, message: 'Meme ID is required' };
+    }
+    // Assuming permissions are checked in some middleware
+    await MemeController.deleteMeme(id);
+    res.status(20).send();
+  }
+);
+
+/* ------------------------ VOTES ------------------------- */
 memeRestrictedRouter.put('/:id/vote', async (req, res) => {
   const { id } = req.params;
   const { isUpvote } = req.body;
@@ -194,14 +224,3 @@ memeRestrictedRouter.delete('/:id/vote', async (req, res) => {
   const updatedMeme = await MemeController.unvoteMeme(id, userId);
   res.json(updatedMeme);
 });
-
-memeRestrictedRouter.delete(
-  '/:id',
-  checkMemeAuthorization,
-  async (req, res) => {
-    const { id } = req.params;
-    // Assuming permissions are checked in some middleware
-    await MemeController.deleteMeme(id);
-    res.status(204).send();
-  }
-);

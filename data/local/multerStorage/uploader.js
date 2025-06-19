@@ -19,7 +19,7 @@ export const uploader = multer({
   },
   fileFilter: (req, file, cb) => {
     if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error('Tipo di file non supportato'), false);
+      return cb({ status: 400, message: 'Unsupported file type' }, false);
     }
 
     const ext = file.originalname.toLowerCase();
@@ -29,7 +29,7 @@ export const uploader = multer({
       !ext.endsWith('.png') &&
       !ext.endsWith('.gif')
     ) {
-      return cb(new Error('Estensione file non supportata'), false);
+      return cb({ status: 400, message: 'Unsupported file extension' }, false);
     }
 
     cb(null, true);

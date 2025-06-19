@@ -10,9 +10,14 @@ import {
   enforceAuthentication,
   extractUserId,
 } from './middleware/utils/authorization.js';
+import {
+  commentOpenRouter,
+  commentRestrictedRouter,
+} from './routes/commentRouter.js';
+import 'dotenv/config.js';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT;
 
 app.use(morgan('dev'));
 
@@ -20,7 +25,7 @@ app.use(cors());
 
 app.use(express.json());
 
-app.use('/public', express.static('public'));
+app.use('/uploads', express.static('uploads'));
 
 app.use(apiDocsRouter);
 
@@ -28,8 +33,10 @@ app.use(apiDocsRouter);
 app.use('/auth', authenticationRouter);
 app.use(extractUserId);
 app.use('/memes', memeOpenRouter);
+app.use('/memes/:memeId/comments', commentOpenRouter);
 app.use(enforceAuthentication);
 app.use('/memes', memeRestrictedRouter);
+app.use('/memes/:memeId/comments', commentRestrictedRouter);
 
 app.use(errorHandler);
 app.listen(PORT, () => {

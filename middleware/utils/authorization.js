@@ -23,6 +23,7 @@ export function extractUserId(req, res, next) {
 }
 
 export function enforceAuthentication(req, res, next) {
+  console.log('enforceAuthentication middleware');
   if (!req.userId) {
     throw { status: 401, message: 'Unauthorized' };
   }
@@ -37,5 +38,16 @@ export async function checkMemeAuthorization(req, res, next) {
   }
 
   await AuthController.checkMemePermissions(user, memeId);
+  next();
+}
+
+export async function checkCommentAuthorization(req, res, next) {
+  const user = req.userId;
+  const commentId = req.params.id;
+  if (!commentId) {
+    throw { status: 400, message: 'Comment ID is required' };
+  }
+
+  await AuthController.checkCommentPermissions(user, commentId);
   next();
 }

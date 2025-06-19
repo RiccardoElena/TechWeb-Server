@@ -5,7 +5,10 @@ import Jwt from 'jsonwebtoken';
 export class AuthController {
   static async checkCredentials(user) {
     const foundUser = await User.findOne({
-      where: { userName: user.userName },
+      where: { userName: user.username },
+      attributes: ['id', 'userName', 'password', 'salt'],
+      raw: true,
+      logging: false,
     });
 
     if (!foundUser) {
@@ -64,12 +67,37 @@ export class AuthController {
       throw { status: 400, message: 'User ID and Meme ID are required' };
     }
 
-    const meme = await Meme.findByPk(memeId);
+    const meme = await Meme.findByPk(memeId, {
+      attributes: ['UserId'],
+      raw: true,
+    });
     if (!meme) {
       throw { status: 404, message: 'Meme not found' };
     }
 
     if (meme.UserId !== userId) {
+      throw {
+        status: 403,
+        message:
+          'Forbidden! You do not have permissions to view or modify this resource',
+      };
+    }
+  }
+
+  static async checkCommentPermissions(userId, commentId) {
+    if (!userId || !commentId) {
+      throw { status: 400, message: 'User ID and Comment ID are required' };
+    }
+
+    const comment = await Comment.findByPk(commentId, {
+      attributes: ['UserId'],
+      raw: true,
+    });
+    if (!comment) {
+      throw { status: 404, message: 'Comment not found' };
+    }
+
+    if (comment.UserId !== userId) {
       throw {
         status: 403,
         message:

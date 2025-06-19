@@ -1,2 +1,2 @@
-GET http://localhost:3000/memes?page=1&limit=10&title=cat&sortedBy=createdAt&sortDirection=desc
+GET http://localhost:3000/memes?page=0&limit=10&title=cat&sortedBy=createdAt&sortDirection=desc
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI5Nzg5YTA5Yi1mMDI0LTRkM2EtYTY2OC1jZDdlYTc1MzdlZjQiLCJ1c2VyTmFtZSI6InJpY2NhcmRvMiIsImlhdCI6MTc1MDE2OTI4MywiZXhwIjoxNzUwMjU1NjgzfQ.lCbsQ1L5QjekzvwcPKJRWav2lH_m3n8cudJRcANyWZg

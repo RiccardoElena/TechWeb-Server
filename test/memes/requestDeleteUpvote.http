@@ -1,2 +1,2 @@
-DELETE http://localhost:3000/memes/7818ae1f-3f26-4aa8-aef4-e4963147478f/vote
+DELETE http://localhost:3000/memes/1f23fca5-3ee6-424b-a09a-6b09f06c463f/vote
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI5Nzg5YTA5Yi1mMDI0LTRkM2EtYTY2OC1jZDdlYTc1MzdlZjQiLCJ1c2VyTmFtZSI6InJpY2NhcmRvMiIsImlhdCI6MTc1MDE2OTI4MywiZXhwIjoxNzUwMjU1NjgzfQ.lCbsQ1L5QjekzvwcPKJRWav2lH_m3n8cudJRcANyWZg

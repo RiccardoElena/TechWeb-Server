@@ -4,6 +4,7 @@ import { createModel as createCommentVoteModel } from './models/CommentVote.js';
 import { createModel as createMemeModel } from './models/Meme.js';
 import { createModel as createMemeVoteModel } from './models/MemeVote.js';
 import { createModel as createUserModel } from './models/User.js';
+import { createModel as createMemeOfTheDayModel } from './models/MemeOfTheDay.js';
 
 import 'dotenv/config.js';
 
@@ -16,8 +17,9 @@ createCommentVoteModel(database);
 createMemeModel(database);
 createMemeVoteModel(database);
 createUserModel(database);
+createMemeOfTheDayModel(database);
 
-export const { User, Meme, MemeVote, Comment, CommentVote, Tag } =
+export const { User, Meme, MemeVote, Comment, CommentVote, Tag, MemeOfTheDay } =
   database.models;
 
 createModelAssociations();
@@ -94,6 +96,112 @@ function setUpTriggers() {
       });
     }
   });
+
+  CommentVote.addHook('afterCreate', async (commentVote, options) => {
+    const comment = await Comment.findByPk(commentVote.commentId, {
+      transaction: options.transaction,
+    });
+
+    if (commentVote.isUpvote) {
+      await comment.increment('upvotesNumber', {
+        transaction: options.transaction,
+      });
+    } else {
+      await comment.increment('downvotesNumber', {
+        transaction: options.transaction,
+      });
+    }
+  });
+
+  CommentVote.addHook('afterUpdate', async (commentVote, options) => {
+    const comment = await Comment.findByPk(commentVote.commentId, {
+      transaction: options.transaction,
+    });
+    if (commentVote.previous('isUpvote') && !commentVote.isUpvote) {
+      await Promise.all([
+        comment.decrement('upvotesNumber', {
+          transaction: options.transaction,
+        }),
+        comment.increment('downvotesNumber', {
+          transaction: options.transaction,
+        }),
+      ]);
+    } else if (!commentVote.previous('isUpvote') && commentVote.isUpvote) {
+      await Promise.all([
+        comment.increment('upvotesNumber', {
+          transaction: options.transaction,
+        }),
+        comment.decrement('downvotesNumber', {
+          transaction: options.transaction,
+        }),
+      ]);
+    }
+  });
+
+  CommentVote.addHook('afterDestroy', async (commentVote, options) => {
+    const comment = await Comment.findByPk(commentVote.commentId, {
+      transaction: options.transaction,
+    });
+    if (commentVote.isUpvote) {
+      await comment.decrement('upvotesNumber', {
+        transaction: options.transaction,
+      });
+    } else {
+      await comment.decrement('downvotesNumber', {
+        transaction: options.transaction,
+      });
+    }
+  });
+
+  Comment.addHook('afterCreate', async (comment, options) => {
+    if (!comment.parentId) {
+      console.log('Creating a top-level comment for meme:', comment.MemeId);
+      const meme = await Meme.findByPk(comment.MemeId, {
+        transaction: options.transaction,
+      });
+      if (!meme) {
+        throw { status: 404, message: 'Meme not found' };
+      }
+
+      await meme.increment('commentsNumber', {
+        transaction: options.transaction,
+      });
+    } else {
+      const parentComment = await Comment.findByPk(comment.parentId, {
+        transaction: options.transaction,
+      });
+      if (!parentComment) {
+        throw { status: 404, message: 'Parent comment not found' };
+      }
+      await parentComment.increment('commentsNumber', {
+        transaction: options.transaction,
+      });
+    }
+  });
+
+  Comment.addHook('afterDestroy', async (comment, options) => {
+    if (comment.parentId) {
+      const parentComment = await Comment.findByPk(comment.parentId, {
+        transaction: options.transaction,
+      });
+      if (!parentComment) {
+        throw { status: 404, message: 'Parent comment not found' };
+      }
+      await parentComment.decrement('commentsNumber', {
+        transaction: options.transaction,
+      });
+    } else {
+      const meme = await Meme.findByPk(comment.memeId, {
+        transaction: options.transaction,
+      });
+      if (!meme) {
+        throw { status: 404, message: 'Meme not found' };
+      }
+      await meme.decrement('commentsNumber', {
+        transaction: options.transaction,
+      });
+    }
+  });
 }
 
 function createModelAssociations() {
@@ -121,7 +229,7 @@ function createModelAssociations() {
     onDelete: 'CASCADE',
   });
   User.MemeVotes = User.hasMany(MemeVote, {
-    foreignKey: 'memeId',
+    foreignKey: 'userId',
     onDelete: 'CASCADE',
   });
 
@@ -169,5 +277,13 @@ function createModelAssociations() {
   Comment.Children = Comment.hasMany(Comment, {
     foreignKey: 'parentId',
     onDelete: 'CASCADE',
+  });
+
+  // MemeOfTheDay-Meme 1:1
+  MemeOfTheDay.Meme = MemeOfTheDay.belongsTo(Meme, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+  });
+  Meme.MemeOfTheDay = Meme.hasOne(MemeOfTheDay, {
+    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
   });
 }

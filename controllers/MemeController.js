@@ -1,4 +1,10 @@
-import { Meme, Comment, User, MemeVote } from '../data/remote/Database.js';
+import {
+  Meme,
+  Comment,
+  User,
+  MemeVote,
+  MemeOfTheDay,
+} from '../data/remote/Database.js';
 import { Op } from 'sequelize';
 import { database } from '../data/remote/Database.js';
 
@@ -10,6 +16,7 @@ export class MemeController {
     tags = [],
     sortedBy = 'createdAt',
     sortDirection = 'DESC',
+    byUser = null,
     userId = null
   ) {
     const validatedPage = Math.max(0, parseInt(page) || 0);
@@ -34,14 +41,19 @@ export class MemeController {
       });
     }
 
-    const where = orConditions.length > 0 ? { [Op.or]: orConditions } : {};
+    const where = {};
+    if (byUser) {
+      where.userId = byUser;
+    }
+    if (orConditions.length > 0) {
+      where[Op.or] = orConditions;
+    }
 
     const include = [];
     if (userId) {
       include.push({
         model: MemeVote,
-
-        where: { UserId: userId },
+        where: { userId: userId },
         required: false, // così i meme senza voto vengono comunque inclusi
         attributes: ['isUpvote'],
       });
@@ -85,8 +97,7 @@ export class MemeController {
     if (userId) {
       include.push({
         model: MemeVote,
-
-        where: { UserId: userId },
+        where: { userId: userId },
         required: false, // così i meme senza voto vengono comunque inclusi
         attributes: ['isUpvote'],
       });
@@ -105,9 +116,10 @@ export class MemeController {
           parentId: null,
         },
         include: [
+          ...include,
           {
             model: User,
-            attributes: ['id', 'userName'],
+            attributes: ['userName'],
           },
         ],
         order: [['createdAt', 'DESC']],
@@ -136,6 +148,54 @@ export class MemeController {
         totalCount: count,
       },
     };
+  }
+
+  static async getMemeOfTheDayId() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const memeOfTheDay = await MemeOfTheDay.findOne({
+      where: {
+        createdAt: {
+          [Op.gte]: today,
+        },
+      },
+    });
+
+    if (memeOfTheDay) {
+      return memeOfTheDay.memeId;
+    }
+    const yesterday = new Date();
+    yesterday.setHours(0, 0, 0, 0);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const memes = await Meme.findAll({
+      where: {
+        createdAt: {
+          [Op.lte]: yesterday,
+        },
+      },
+      attributes: ['id'],
+    });
+
+    if (!memes || memes.length === 0) {
+      throw { status: 404, message: 'No memes found' };
+    }
+
+    // Calcola un numero di giorni dal 1/1/1970
+    const dayNumber = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
+    const index = dayNumber % memes.length;
+
+    const memeId = memes[index] ? memes[index].id : null;
+    if (!memeId) {
+      throw { status: 404, message: 'Meme not found' };
+    }
+    // Crea o aggiorna il meme of the day
+    await MemeOfTheDay.create({
+      memeId: memeId,
+    });
+
+    return memeId;
   }
 
   static async voteMeme(memeId, usrId, isUpvote) {
@@ -210,40 +270,52 @@ export class MemeController {
   static async createMeme(
     { title, description, tags },
     fileName,
-    originalName,
     filePath,
     userId
   ) {
-    if (!title || !fileName || !originalName || !filePath || !userId) {
+    if (!title || !fileName || !filePath || !userId) {
       throw { status: 400, message: 'Missing required fields' };
     }
     try {
-      return Meme.create({
+      console.log('Creating meme with data:');
+      return await Meme.create({
         title: title,
         description: description,
         tags: Array.isArray(tags) ? tags : [tags],
         fileName: fileName,
-        originalName: originalName,
         filePath: filePath,
         UserId: userId,
       });
     } catch (err) {
+      console.log('Error creating meme:', err.name);
       if (
         err.name === 'SequelizeValidationError' ||
         err.name === 'SequelizeUniqueConstraintError'
       ) {
         throw { status: 400, message: 'Data validation error' };
       }
+      if (err.name === 'SequelizeForeignKeyConstraintError') {
+        throw { status: 409, message: 'User not found' };
+      }
       throw err; // rilancia altri errori non previsti
     }
   }
 
-  static async updateMeme(id, memeData) {
+  static async updateMeme(id, memeData, userId) {
     if (!id || !memeData) {
       throw { status: 400, message: 'Meme ID and data are required' };
     }
 
-    const meme = await Meme.findByPk(id);
+    const meme = await Meme.findByPk(id, {
+      include: [
+        {
+          model: MemeVote,
+          where: { userId: userId },
+          required: false, // così i meme senza voto vengono comunque inclusi
+          attributes: ['isUpvote'],
+        },
+      ],
+    });
     if (!meme) {
       throw { status: 404, message: 'Meme not found' };
     }

@@ -4,6 +4,7 @@ export function createModel(database) {
   database.define('Comment', {
     id: {
       type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
       allowNull: false,
     },
@@ -25,7 +26,7 @@ export function createModel(database) {
       defaultValue: 0,
       allowNull: false,
     },
-    commentNumber: {
+    commentsNumber: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       allowNull: false,

@@ -12,10 +12,6 @@ export function createModel(database) {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    originalName: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
     filePath: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -41,7 +37,7 @@ export function createModel(database) {
       defaultValue: 0,
       allowNull: false,
     },
-    commentNumber: {
+    commentsNumber: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       allowNull: false,
