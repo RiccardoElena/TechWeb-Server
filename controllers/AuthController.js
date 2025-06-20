@@ -1,4 +1,4 @@
-import { User, Meme } from '../data/remote/Database.js';
+import { User, Meme, Comment } from '../data/remote/Database.js';
 import { createHash, randomBytes } from 'crypto';
 import Jwt from 'jsonwebtoken';
 

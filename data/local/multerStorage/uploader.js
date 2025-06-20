@@ -15,7 +15,7 @@ const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
 export const uploader = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 5 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     if (!allowedTypes.includes(file.mimetype)) {

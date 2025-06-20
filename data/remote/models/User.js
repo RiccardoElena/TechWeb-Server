@@ -10,7 +10,7 @@ export function createModel(database) {
       primaryKey: true,
     },
     userName: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false,
       unique: true,
     },
@@ -19,7 +19,7 @@ export function createModel(database) {
       allowNull: false,
     },
     password: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false,
       set(value) {
         const hash = createHash('sha256');

@@ -145,7 +145,16 @@ memeOpenRouter.get('/:id', async (req, res) => {
   res.json(meme);
 });
 
-memeOpenRouter.get('/memeOfTheDay', async (req, res) => {
+memeOpenRouter.get('/meme-of-the-day/id', async (req, res) => {
+  const memeId = await MemeController.getMemeOfTheDayId();
+  if (!memeId) {
+    throw { status: 404, message: 'Meme of the day not found' };
+  }
+  console.log('Meme of the day ID:', memeId);
+  res.json(memeId);
+});
+
+memeOpenRouter.get('/meme-of-the-day', async (req, res) => {
   const memeId = await MemeController.getMemeOfTheDayId();
   if (!memeId) {
     throw { status: 404, message: 'Meme of the day not found' };
@@ -164,7 +173,7 @@ memeRestrictedRouter.post('/', uploader.single('file'), async (req, res) => {
   const userId = req.userId; // Assuming user ID is set in req.userId by extractUserId middleware
 
   const meme = await MemeController.createMeme(
-    { title, description, tags },
+    { title, description, tags: tags.split(',') },
     fileName,
     filePath,
     userId
@@ -189,12 +198,13 @@ memeRestrictedRouter.delete(
     }
     // Assuming permissions are checked in some middleware
     await MemeController.deleteMeme(id);
-    res.status(20).send();
+    res.status(204).send();
   }
 );
 
 /* ------------------------ VOTES ------------------------- */
 memeRestrictedRouter.put('/:id/vote', async (req, res) => {
+  console.log('Voting on meme:', req.params.id, 'with body:', req.body);
   const { id } = req.params;
   const { isUpvote } = req.body;
   const userId = req.userId; // Assuming user ID is set in req.userId

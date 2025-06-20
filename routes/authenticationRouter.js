@@ -77,5 +77,7 @@ authenticationRouter.post('/signup', async (req, res) => {
     req.body.password
   );
 
-  res.status(201).json(AuthController.issueToken(user.id, user.username));
+  console.log('User registered:', user.id, user.userName);
+
+  res.status(201).json(AuthController.issueToken(user.id, user.userName));
 });

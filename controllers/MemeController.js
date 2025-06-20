@@ -4,9 +4,12 @@ import {
   User,
   MemeVote,
   MemeOfTheDay,
+  CommentVote,
 } from '../data/remote/Database.js';
 import { Op } from 'sequelize';
 import { database } from '../data/remote/Database.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 export class MemeController {
   static async getMemesPage(
@@ -49,7 +52,13 @@ export class MemeController {
       where[Op.or] = orConditions;
     }
 
-    const include = [];
+    const include = [
+      {
+        model: User,
+        attributes: ['id', 'userName'],
+        required: true, // Assicura che il meme abbia un utente associato
+      },
+    ];
     if (userId) {
       include.push({
         model: MemeVote,
@@ -66,6 +75,9 @@ export class MemeController {
       include,
     });
 
+    memes.forEach((meme) => {
+      console.log(meme.toJSON());
+    });
     return {
       data: memes,
       pagination: {
@@ -93,10 +105,24 @@ export class MemeController {
     );
 
     const commentsOffset = validatedCommentsPage * validatedCommentsLimit;
-    const include = [];
+    const includeMeme = [
+      {
+        model: User,
+        attributes: ['id', 'userName'],
+        required: true, // Assicura che il meme abbia un utente associato
+      },
+    ];
+    const includeComment = [...includeMeme];
     if (userId) {
-      include.push({
+      includeMeme.push({
         model: MemeVote,
+        where: { userId: userId },
+        required: false, // così i meme senza voto vengono comunque inclusi
+        attributes: ['isUpvote'],
+      });
+
+      includeComment.push({
+        model: CommentVote,
         where: { userId: userId },
         required: false, // così i meme senza voto vengono comunque inclusi
         attributes: ['isUpvote'],
@@ -106,7 +132,7 @@ export class MemeController {
     const [meme, comments, count] = await Promise.all([
       // Query 1: Dati del meme
       Meme.findByPk(id, {
-        include,
+        include: includeMeme,
       }),
 
       // Query 2: Commenti paginati
@@ -116,7 +142,7 @@ export class MemeController {
           parentId: null,
         },
         include: [
-          ...include,
+          ...includeComment,
           {
             model: User,
             attributes: ['userName'],
@@ -152,7 +178,9 @@ export class MemeController {
 
   static async getMemeOfTheDayId() {
     const today = new Date();
+    console.log('Getting meme of the day for:', today);
     today.setHours(0, 0, 0, 0);
+    console.log('Today:', today);
 
     const memeOfTheDay = await MemeOfTheDay.findOne({
       where: {
@@ -163,16 +191,15 @@ export class MemeController {
     });
 
     if (memeOfTheDay) {
-      return memeOfTheDay.memeId;
+      console.log('Meme of the day found:', memeOfTheDay.MemeId);
+      return memeOfTheDay.MemeId;
     }
-    const yesterday = new Date();
-    yesterday.setHours(0, 0, 0, 0);
-    yesterday.setDate(yesterday.getDate() - 1);
+    console.log('No meme of the day found for today, calculating...');
 
     const memes = await Meme.findAll({
       where: {
         createdAt: {
-          [Op.lte]: yesterday,
+          [Op.lte]: today,
         },
       },
       attributes: ['id'],
@@ -185,14 +212,16 @@ export class MemeController {
     // Calcola un numero di giorni dal 1/1/1970
     const dayNumber = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
     const index = dayNumber % memes.length;
+    console.log(index);
 
     const memeId = memes[index] ? memes[index].id : null;
     if (!memeId) {
       throw { status: 404, message: 'Meme not found' };
     }
+    console.log(memeId);
     // Crea o aggiorna il meme of the day
     await MemeOfTheDay.create({
-      memeId: memeId,
+      MemeId: memeId,
     });
 
     return memeId;
@@ -341,6 +370,22 @@ export class MemeController {
     const meme = await Meme.findByPk(id);
     if (!meme) {
       throw { status: 404, message: 'Meme not found' };
+    }
+
+    if (meme.filePath) {
+      const uploadsDir = path.resolve('uploads');
+      const fileToDelete = path.resolve(
+        uploadsDir,
+        path.basename(meme.filePath)
+      );
+      try {
+        await fs.unlink(fileToDelete);
+      } catch (err) {
+        // Ignora l'errore se il file non esiste
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
     }
 
     await meme.destroy();

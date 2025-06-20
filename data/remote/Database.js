@@ -27,9 +27,7 @@ createModelAssociations();
 setUpTriggers();
 
 database
-  .sync(
-    { alter: true } // Uncomment this line to alter the tables automatically
-  )
+  .sync() // Uncomment this line to alter the tables automatically
   .then(() => {
     console.log('Database synced correctly');
   })
@@ -191,7 +189,8 @@ function setUpTriggers() {
         transaction: options.transaction,
       });
     } else {
-      const meme = await Meme.findByPk(comment.memeId, {
+      console.log('memeId:', comment.MemeId);
+      const meme = await Meme.findByPk(comment.MemeId, {
         transaction: options.transaction,
       });
       if (!meme) {

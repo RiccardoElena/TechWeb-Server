@@ -43,6 +43,7 @@ export async function checkMemeAuthorization(req, res, next) {
 
 export async function checkCommentAuthorization(req, res, next) {
   const user = req.userId;
+  console.log(req.params);
   const commentId = req.params.id;
   if (!commentId) {
     throw { status: 400, message: 'Comment ID is required' };
