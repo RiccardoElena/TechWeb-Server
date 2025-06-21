@@ -55,6 +55,8 @@ memeOpenRouter.get('/', async (req, res) => {
   const { page, limit, title, tags, sortedBy, sortDirection, userId } =
     req.query;
 
+  console.log('Query parameters:', req.query);
+
   let parsedTags = [];
   if (tags) {
     parsedTags = Array.isArray(tags) ? tags : tags.split(',');

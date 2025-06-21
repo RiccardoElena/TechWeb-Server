@@ -9,13 +9,13 @@ import {
 export class CommentController {
   static async getChildrenComments(
     commentId,
-    page = 1,
+    page = 0,
     limit = 10,
     userId = null
   ) {
-    const validatedPage = Math.max(1, parseInt(page) || 1);
+    const validatedPage = Math.max(0, parseInt(page) || 0);
     const validatedLimit = Math.min(Math.max(1, parseInt(limit) || 10), 50);
-    const offset = (validatedPage - 1) * validatedLimit;
+    const offset = validatedPage * validatedLimit;
 
     if (!commentId) {
       throw { status: 400, message: 'Comment ID is required' };
@@ -48,7 +48,9 @@ export class CommentController {
       }),
       Comment.count({ where: { parentId: commentId } }),
     ]);
-
+    console.log('Parent comment:', parent);
+    console.log('Replies:', replies);
+    console.log('Total replies count:', count);
     if (!parent) {
       throw { status: 404, message: 'Parent comment not found' };
     }

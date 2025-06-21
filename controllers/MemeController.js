@@ -46,7 +46,7 @@ export class MemeController {
 
     const where = {};
     if (byUser) {
-      where.userId = byUser;
+      where.UserId = byUser;
     }
     if (orConditions.length > 0) {
       where[Op.or] = orConditions;
@@ -67,19 +67,35 @@ export class MemeController {
         attributes: ['isUpvote'],
       });
     }
-    const memes = await Meme.findAll({
-      where,
-      limit: validatedLimit,
-      offset: offset,
-      order: [[sortedBy, sortDirection]],
-      include,
-    });
+
+    const searches = [
+      Meme.findAll({
+        where,
+        limit: validatedLimit,
+        offset: offset,
+        order: [[sortedBy, sortDirection]],
+        include,
+      }),
+    ];
+
+    if (byUser) {
+      searches.push(
+        User.findByPk(byUser, {
+          attributes: ['id', 'userName'],
+        })
+      );
+    }
+
+    console.log('HELLOOO!');
+    const [memes, user] = await Promise.all(searches);
 
     memes.forEach((meme) => {
       console.log(meme.toJSON());
     });
+    console.log('hello?');
     return {
       data: memes,
+      user: user,
       pagination: {
         page: validatedPage,
         limit: validatedLimit,
