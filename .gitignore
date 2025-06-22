@@ -20,7 +20,8 @@ pids/
 !.env.example
 
 # Upload directories
-uploads/
+uploads/*
+!uploads/.gitkeep
 
 # OS files
 .DS_Store
