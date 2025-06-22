@@ -48,9 +48,7 @@ export class CommentController {
       }),
       Comment.count({ where: { parentId: commentId } }),
     ]);
-    console.log('Parent comment:', parent);
-    console.log('Replies:', replies);
-    console.log('Total replies count:', count);
+
     if (!parent) {
       throw { status: 404, message: 'Parent comment not found' };
     }
@@ -112,10 +110,9 @@ export class CommentController {
     if (!comment) {
       throw { status: 404, message: 'Comment not found' };
     }
-    console.log(comment.toJSON());
+
     const t = await database.transaction();
     if (comment.CommentVotes && comment.CommentVotes.length === 1) {
-      console.log('Updating existing vote');
       const existingVote = comment.CommentVotes[0];
       await existingVote.update({ isUpvote: isUpvote }, { transaction: t });
     } else {

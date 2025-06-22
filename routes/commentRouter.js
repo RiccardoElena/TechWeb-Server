@@ -12,7 +12,7 @@ commentOpenRouter.get('/:id/replies', async (req, res) => {
   const { id } = req.params;
   const { page, limit } = req.query;
   const userId = req.userId;
-  console.log('HERE');
+
   const result = await CommentController.getChildrenComments(
     id,
     page,
@@ -23,7 +23,6 @@ commentOpenRouter.get('/:id/replies', async (req, res) => {
 });
 
 commentRestrictedRouter.post('/', async (req, res) => {
-  console.log(req.params);
   const { memeId } = req.params;
   const { content, parentId } = req.body;
   const userId = req.userId;

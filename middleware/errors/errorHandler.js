@@ -1,12 +1,12 @@
 export function errorHandler(err, req, res, next) {
-  console.log('Error occurred:  ' + err.message);
+  console.error('Error occurred:  ' + err.message);
   if (err.errors) {
     console.error(
       'Dettagli:',
       err.errors.map((e) => e.message)
     );
   }
-  console.log('Error stack: ' + err.stack);
+  console.error('Error stack: ' + err.stack);
   res.status(err.status || 500).json({
     code: err.status || 500,
     description: err.status

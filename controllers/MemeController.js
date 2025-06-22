@@ -76,6 +76,10 @@ export class MemeController {
         order: [[sortedBy, sortDirection]],
         include,
       }),
+
+      Meme.count({
+        where,
+      }),
     ];
 
     if (byUser) {
@@ -86,20 +90,15 @@ export class MemeController {
       );
     }
 
-    console.log('HELLOOO!');
-    const [memes, user] = await Promise.all(searches);
+    const [memes, totalCount, user] = await Promise.all(searches);
 
-    memes.forEach((meme) => {
-      console.log(meme.toJSON());
-    });
-    console.log('hello?');
     return {
       data: memes,
       user: user,
       pagination: {
         page: validatedPage,
         limit: validatedLimit,
-        hasMore: memes.length === validatedLimit,
+        hasMore: validatedPage * validatedLimit + validatedLimit < totalCount,
       },
     };
   }
@@ -194,9 +193,8 @@ export class MemeController {
 
   static async getMemeOfTheDayId() {
     const today = new Date();
-    console.log('Getting meme of the day for:', today);
+
     today.setHours(0, 0, 0, 0);
-    console.log('Today:', today);
 
     const memeOfTheDay = await MemeOfTheDay.findOne({
       where: {
@@ -207,10 +205,8 @@ export class MemeController {
     });
 
     if (memeOfTheDay) {
-      console.log('Meme of the day found:', memeOfTheDay.MemeId);
       return memeOfTheDay.MemeId;
     }
-    console.log('No meme of the day found for today, calculating...');
 
     const memes = await Meme.findAll({
       where: {
@@ -228,13 +224,12 @@ export class MemeController {
     // Calcola un numero di giorni dal 1/1/1970
     const dayNumber = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
     const index = dayNumber % memes.length;
-    console.log(index);
 
     const memeId = memes[index] ? memes[index].id : null;
     if (!memeId) {
       throw { status: 404, message: 'Meme not found' };
     }
-    console.log(memeId);
+
     // Crea o aggiorna il meme of the day
     await MemeOfTheDay.create({
       MemeId: memeId,
@@ -322,7 +317,6 @@ export class MemeController {
       throw { status: 400, message: 'Missing required fields' };
     }
     try {
-      console.log('Creating meme with data:');
       return await Meme.create({
         title: title,
         description: description,
@@ -332,7 +326,6 @@ export class MemeController {
         UserId: userId,
       });
     } catch (err) {
-      console.log('Error creating meme:', err.name);
       if (
         err.name === 'SequelizeValidationError' ||
         err.name === 'SequelizeUniqueConstraintError'

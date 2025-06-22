@@ -10,7 +10,6 @@ export const memeOpenRouter = express.Router();
 /** Routes for authenticated users to manage memes */
 export const memeRestrictedRouter = express.Router();
 
-// TODO: after proper testing with db start using middleware for file upload
 /**
  * @swagger
  *  /memes:
@@ -54,8 +53,6 @@ export const memeRestrictedRouter = express.Router();
 memeOpenRouter.get('/', async (req, res) => {
   const { page, limit, title, tags, sortedBy, sortDirection, userId } =
     req.query;
-
-  console.log('Query parameters:', req.query);
 
   let parsedTags = [];
   if (tags) {
@@ -147,15 +144,73 @@ memeOpenRouter.get('/:id', async (req, res) => {
   res.json(meme);
 });
 
+/** * @swagger
+ *  /memes/meme-of-the-day/id:
+ *    get:
+ *      description: Get the ID of the meme of the day
+ *      produces:
+ *        - application/json
+ *      responses:
+ *        200:
+ *          description: ID of the meme of the day
+ *          content:
+ *            application/json:
+ *              schema:
+ *                type: string
+ *                example: 1
+ *        404:
+ *          description: Meme of the day not found
+ *        500:
+ *          description: Internal server error
+ */
 memeOpenRouter.get('/meme-of-the-day/id', async (req, res) => {
   const memeId = await MemeController.getMemeOfTheDayId();
   if (!memeId) {
     throw { status: 404, message: 'Meme of the day not found' };
   }
-  console.log('Meme of the day ID:', memeId);
+
   res.json(memeId);
 });
 
+/** *
+ * @swagger
+ *  /memes/meme-of-the-day:
+ *    get:
+ *      description: Get the meme of the day
+ *      produces:
+ *        - application/json
+ *      responses:
+ *        200:
+ *          description: Meme of the day object
+ *          content:
+ *            application/json:
+ *              schema:
+ *                type: object
+ *                properties:
+ *                  id:
+ *                    type: string
+ *                    example: 1
+ *                  title:
+ *                    type: string
+ *                    example: Funny Meme
+ *                  imageUrl:
+ *                    type: string
+ *                    example: http://example.com/meme.jpg
+ *                  createdAt:
+ *                    type: string
+ *                    format: date-time
+ *                    example: 2023-10-01T12:00:00Z
+ *                  userId:
+ *                    type: string
+ *                    example: 12345
+ *                  userName:
+ *                    type: string
+ *                    example: Kyle
+ *        404:
+ *          description: Meme of the day not found
+ *        500:
+ *          description: Internal server error
+ */
 memeOpenRouter.get('/meme-of-the-day', async (req, res) => {
   const memeId = await MemeController.getMemeOfTheDayId();
   if (!memeId) {
@@ -171,11 +226,15 @@ memeRestrictedRouter.post('/', uploader.single('file'), async (req, res) => {
   const filePath = `http://localhost:${process.env.PORT}/uploads/${fileName}`; // Adjust this based on your server setup
 
   const { title, description, tags } = req.body;
-  console.log(title, description, tags, fileName, filePath);
+
   const userId = req.userId; // Assuming user ID is set in req.userId by extractUserId middleware
 
   const meme = await MemeController.createMeme(
-    { title, description, tags: tags.split(',') },
+    {
+      title,
+      description,
+      tags: tags.split(',').filter((tag) => tag.trim() !== ''),
+    },
     fileName,
     filePath,
     userId
@@ -206,7 +265,6 @@ memeRestrictedRouter.delete(
 
 /* ------------------------ VOTES ------------------------- */
 memeRestrictedRouter.put('/:id/vote', async (req, res) => {
-  console.log('Voting on meme:', req.params.id, 'with body:', req.body);
   const { id } = req.params;
   const { isUpvote } = req.body;
   const userId = req.userId; // Assuming user ID is set in req.userId

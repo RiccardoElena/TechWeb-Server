@@ -71,13 +71,10 @@ authenticationRouter.post('/login', async (req, res) => {
  *          description: Username already exists
  */
 authenticationRouter.post('/signup', async (req, res) => {
-  console.log('Received signup request:', req.body);
   const user = await AuthController.register(
     req.body.username,
     req.body.password
   );
-
-  console.log('User registered:', user.id, user.userName);
 
   res.status(201).json(AuthController.issueToken(user.id, user.userName));
 });

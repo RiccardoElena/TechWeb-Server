@@ -28,9 +28,7 @@ setUpTriggers();
 
 database
   .sync() // Uncomment this line to alter the tables automatically
-  .then(() => {
-    console.log('Database synced correctly');
-  })
+  .then(() => {})
   .catch((err) => {
     console.error(
       'Error with database synchronization: ' + err.message,
@@ -153,7 +151,6 @@ function setUpTriggers() {
 
   Comment.addHook('afterCreate', async (comment, options) => {
     if (!comment.parentId) {
-      console.log('Creating a top-level comment for meme:', comment.MemeId);
       const meme = await Meme.findByPk(comment.MemeId, {
         transaction: options.transaction,
       });
@@ -189,7 +186,6 @@ function setUpTriggers() {
         transaction: options.transaction,
       });
     } else {
-      console.log('memeId:', comment.MemeId);
       const meme = await Meme.findByPk(comment.MemeId, {
         transaction: options.transaction,
       });
@@ -280,9 +276,11 @@ function createModelAssociations() {
 
   // MemeOfTheDay-Meme 1:1
   MemeOfTheDay.Meme = MemeOfTheDay.belongsTo(Meme, {
-    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+    foreignKey: { allowNull: false },
+    onDelete: 'CASCADE',
   });
   Meme.MemeOfTheDay = Meme.hasOne(MemeOfTheDay, {
-    foreignKey: { allowNull: false, onDelete: 'CASCADE' },
+    foreignKey: { allowNull: false },
+    onDelete: 'CASCADE',
   });
 }

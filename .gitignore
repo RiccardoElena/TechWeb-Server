@@ -17,6 +17,10 @@ pids/
 # Environment variables
 .env
 .env.*
+!.env.example
+
+# Upload directories
+uploads/
 
 # OS files
 .DS_Store
